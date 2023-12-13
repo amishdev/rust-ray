@@ -159,32 +159,47 @@ impl<'a> Ray<'a> {
     }
 }
 
+#[macro_export]
+macro_rules! ray {
+    () => {{
+        Ray::new()
+    }};
+    ($($arg:tt)*) => {{
+        let mut ray = Ray::new();
+        ray.text(format!("{}", format_args!($($arg)*)));
+        ray
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn text() {
-        let mut ray = Ray::new();
+    fn macro_no_args() {
+        let _ray = ray!();
+    }
 
-        ray.text("foobar".to_string());
+    #[test]
+    fn macro_with_args() {
+        let some_var = "test string";
+        let _ray = ray!("{:?}", some_var).color("green");
+    }
+
+    #[test]
+    fn text() {
+        ray!("foobar");
     }
 
     #[test]
     fn color() {
-        let mut ray = Ray::new();
+        ray!("red").color("red");
 
-        ray.text(format!("red")).color("red");
-
-        let mut ray = Ray::new();
-
-        ray.text(format!("green")).color("green");
+        ray!("green").color("green");
     }
 
     #[test]
     fn confetti() {
-        let mut ray = Ray::new();
-
-        ray.confetti();
+        ray!().confetti();
     }
 }
