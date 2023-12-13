@@ -151,7 +151,7 @@ impl<'a> Ray<'a> {
     }
 
     // Async version using tokio
-    #[cfg(feature = "tokio")]
+    #[cfg(feature = "with_tokio")]
     fn send(&self) {
         use tokio::task;
 
@@ -159,15 +159,12 @@ impl<'a> Ray<'a> {
 
         task::spawn(async move {
             let client = reqwest::Client::new();
-            let _ = client
-                .post("http://localhost:23517/")
-                .json(&request)
-                .await;
+            let _ = client.post("http://localhost:23517/").json(&request).await;
         })?;
     }
 
     // Blocking version without tokio
-    #[cfg(not(feature = "tokio"))]
+    #[cfg(not(feature = "with_tokio"))]
     fn send(&self) {
         let client = reqwest::blocking::Client::new();
         let _ = client
