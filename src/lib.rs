@@ -1,27 +1,74 @@
+use serde::{ser::SerializeStruct, Serialize, Serializer};
 use std::collections::HashMap;
 
-use serde::Serialize;
-
 #[derive(Serialize, Debug)]
-struct RayPayload {
-    r#type: String,
-    content: String,
+struct RayPayload<'a> {
+    r#type: &'a str,
     origin: RayOrigin,
+    content: Payload,
 }
 
 type RayMeta = HashMap<String, String>;
 
 #[derive(Serialize, Debug)]
-struct RayRequest {
+struct RayRequest<'a> {
     uuid: String,
-    payloads: Vec<RayPayload>,
+    payloads: Vec<RayPayload<'a>>,
     meta: RayMeta,
+}
+
+#[derive(Debug)]
+enum Payload {
+    Text(TextPayload),
+    Confetti,
+    Color(ColorPayload),
+}
+
+impl From<TextPayload> for Payload {
+    fn from(payload: TextPayload) -> Self {
+        Self::Text(payload)
+    }
+}
+impl From<ColorPayload> for Payload {
+    fn from(payload: ColorPayload) -> Self {
+        Self::Color(payload)
+    }
+}
+
+impl serde::Serialize for Payload {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Payload::Text(TextPayload { content, label }) => {
+                let mut payload = serializer.serialize_struct("Payload", 2)?;
+                payload.serialize_field("content", content)?;
+                payload.serialize_field("label", label)?;
+                payload.end()
+            }
+            Payload::Color(ColorPayload { color }) => {
+                let mut payload = serializer.serialize_struct("Payload", 1)?;
+                payload.serialize_field("color", color)?;
+                payload.end()
+            }
+            Payload::Confetti => {
+                let payload = serializer.serialize_struct("Payload", 1)?;
+                payload.end()
+            }
+        }
+    }
 }
 
 #[derive(Serialize, Debug)]
 struct TextPayload {
     content: String,
     label: String,
+}
+
+#[derive(Serialize, Debug)]
+struct ColorPayload {
+    color: String,
 }
 
 #[derive(Serialize, Debug)]
@@ -42,11 +89,11 @@ impl RayOrigin {
     }
 }
 
-pub struct Ray {
-    request: RayRequest,
+pub struct Ray<'a> {
+    request: RayRequest<'a>,
 }
 
-impl Ray {
+impl<'a> Ray<'a> {
     pub fn new() -> Self {
         Self {
             request: RayRequest {
@@ -58,16 +105,30 @@ impl Ray {
     }
 
     pub fn text(&mut self, content: String) -> &mut Self {
-        let content = serde_json::to_string(&TextPayload {
+        let content = TextPayload {
             content,
             label: "Text".to_string(),
-        })
-        .unwrap();
+        };
 
         let payload = RayPayload {
-            r#type: "custom".to_string(),
-            content,
+            r#type: "custom",
+            content: Payload::from(content),
             origin: RayOrigin::new(),
+        };
+
+        self.request.payloads.push(payload);
+        self.send();
+
+        self
+    }
+
+    pub fn color(&mut self, color: &str) -> &mut Self {
+        let payload = RayPayload {
+            r#type: "color",
+            origin: RayOrigin::new(),
+            content: Payload::Color(ColorPayload {
+                color: color.to_string(),
+            }),
         };
 
         self.request.payloads.push(payload);
@@ -78,8 +139,8 @@ impl Ray {
 
     pub fn confetti(&mut self) -> &mut Self {
         let payload = RayPayload {
-            r#type: "confetti".to_string(),
-            content: "".to_string(),
+            r#type: "confetti",
+            content: Payload::Confetti,
             origin: RayOrigin::new(),
         };
 
@@ -107,6 +168,17 @@ mod tests {
         let mut ray = Ray::new();
 
         ray.text("foobar".to_string());
+    }
+
+    #[test]
+    fn color() {
+        let mut ray = Ray::new();
+
+        ray.text(format!("red")).color("red");
+
+        let mut ray = Ray::new();
+
+        ray.text(format!("green")).color("green");
     }
 
     #[test]
