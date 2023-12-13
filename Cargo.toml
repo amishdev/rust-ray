@@ -1,8 +1,14 @@
 [package]
 name = "rust-ray"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
-
+authors = ["ChristianPav _@christians.email"]
+description = "A rust crate for Spatie Ray"
+readme = "README.md"
+homepage = "https://github.com/amishdev/rust-ray"
+repository = "https://github.com/amishdev/rust-ray"
+license = "MIT OR Apache-2.0"
+keywords = ["ray", "debug"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
