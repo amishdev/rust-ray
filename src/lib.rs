@@ -150,7 +150,25 @@ impl<'a> Ray<'a> {
         self
     }
 
-    fn send(&mut self) {
+    // Async version using tokio
+    #[cfg(feature = "tokio")]
+    fn send(&self) {
+        use tokio::task;
+
+        let request = self.request.clone();
+
+        task::spawn(async move {
+            let client = reqwest::Client::new();
+            let _ = client
+                .post("http://localhost:23517/")
+                .json(&request)
+                .await;
+        })?;
+    }
+
+    // Blocking version without tokio
+    #[cfg(not(feature = "tokio"))]
+    fn send(&self) {
         let client = reqwest::blocking::Client::new();
         let _ = client
             .post("http://localhost:23517/")
