@@ -1,23 +1,23 @@
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use std::collections::HashMap;
 
-#[derive(Serialize, Debug)]
-struct RayPayload<'a> {
-    r#type: &'a str,
+#[derive(Serialize, Debug, Clone)]
+struct RayPayload {
+    r#type: &'static str,
     origin: RayOrigin,
     content: Payload,
 }
 
 type RayMeta = HashMap<String, String>;
 
-#[derive(Serialize, Debug)]
-struct RayRequest<'a> {
+#[derive(Serialize, Debug, Clone)]
+struct RayRequest {
     uuid: String,
-    payloads: Vec<RayPayload<'a>>,
+    payloads: Vec<RayPayload>,
     meta: RayMeta,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Payload {
     Text(TextPayload),
     Confetti,
@@ -60,18 +60,18 @@ impl serde::Serialize for Payload {
     }
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Clone)]
 struct TextPayload {
     content: String,
     label: String,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Clone)]
 struct ColorPayload {
     color: String,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Clone)]
 struct RayOrigin {
     function_name: String,
     r#file: String,
@@ -89,11 +89,11 @@ impl RayOrigin {
     }
 }
 
-pub struct Ray<'a> {
-    request: RayRequest<'a>,
+pub struct Ray {
+    request: RayRequest,
 }
 
-impl<'a> Ray<'a> {
+impl Ray {
     pub fn new() -> Self {
         Self {
             request: RayRequest {
@@ -157,10 +157,10 @@ impl<'a> Ray<'a> {
 
         let request = self.request.clone();
 
-        task::spawn(async move {
-            let client = reqwest::Client::new();
-            let _ = client.post("http://localhost:23517/").json(&request).await;
-        })?;
+        let _ = task::spawn_blocking(move || {
+            let client = reqwest::blocking::Client::new();
+            let _ = client.post("http://localhost:23517/").json(&request).send();
+        });
     }
 
     // Blocking version without tokio
@@ -187,6 +187,7 @@ macro_rules! ray {
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "with_tokio"))]
 mod tests {
     use super::*;
 
@@ -215,6 +216,39 @@ mod tests {
 
     #[test]
     fn confetti() {
+        ray!().confetti();
+    }
+}
+
+#[cfg(feature = "with_tokio")]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn macro_no_args() {
+        let _ray = ray!();
+    }
+
+    #[tokio::test]
+    async fn macro_with_args() {
+        let some_var = "test string";
+        let _ray = ray!("{:?}", some_var).color("green");
+    }
+
+    #[tokio::test]
+    async fn text() {
+        ray!("foobar");
+    }
+
+    #[tokio::test]
+    async fn color() {
+        ray!("red").color("red");
+
+        ray!("green").color("green");
+    }
+
+    #[tokio::test]
+    async fn confetti() {
         ray!().confetti();
     }
 }
