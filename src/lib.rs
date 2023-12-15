@@ -1,5 +1,10 @@
-use serde::{ser::SerializeStruct, Serialize, Serializer};
-use std::collections::HashMap;
+use backtrace::Backtrace;
+use serde::Serialize;
+use std::{backtrace, collections::HashMap};
+
+mod payloads;
+
+use payloads::*;
 
 #[derive(Serialize, Debug, Clone)]
 struct RayPayload {
@@ -15,78 +20,6 @@ struct RayRequest {
     uuid: String,
     payloads: Vec<RayPayload>,
     meta: RayMeta,
-}
-
-#[derive(Debug, Clone)]
-enum Payload {
-    Log(LogPayload),
-    Text(TextPayload),
-    Confetti,
-    Color(ColorPayload),
-}
-
-impl From<TextPayload> for Payload {
-    fn from(payload: TextPayload) -> Self {
-        Self::Text(payload)
-    }
-}
-impl From<ColorPayload> for Payload {
-    fn from(payload: ColorPayload) -> Self {
-        Self::Color(payload)
-    }
-}
-impl From<LogPayload> for Payload {
-    fn from(payload: LogPayload) -> Self {
-        Self::Log(payload)
-    }
-}
-
-impl serde::Serialize for Payload {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            Payload::Log(LogPayload { values, label }) => {
-                let mut payload = serializer.serialize_struct("Payload", 2)?;
-                payload.serialize_field("values", values)?;
-                payload.serialize_field("label", label)?;
-                payload.end()
-            }
-            Payload::Text(TextPayload { content, label }) => {
-                let mut payload = serializer.serialize_struct("Payload", 2)?;
-                payload.serialize_field("content", content)?;
-                payload.serialize_field("label", label)?;
-                payload.end()
-            }
-            Payload::Color(ColorPayload { color }) => {
-                let mut payload = serializer.serialize_struct("Payload", 1)?;
-                payload.serialize_field("color", color)?;
-                payload.end()
-            }
-            Payload::Confetti => {
-                let payload = serializer.serialize_struct("Payload", 1)?;
-                payload.end()
-            }
-        }
-    }
-}
-
-#[derive(Serialize, Debug, Clone)]
-struct LogPayload {
-    values: Vec<String>,
-    label: String,
-}
-
-#[derive(Serialize, Debug, Clone)]
-struct TextPayload {
-    content: String,
-    label: String,
-}
-
-#[derive(Serialize, Debug, Clone)]
-struct ColorPayload {
-    color: String,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -185,6 +118,19 @@ impl Ray {
         self
     }
 
+    pub fn clear_all(&mut self) -> &mut Self {
+        let payload = RayPayload {
+            r#type: "clear_all",
+            content: Payload::ClearAll,
+            origin: RayOrigin::new(),
+        };
+
+        self.request.payloads.push(payload);
+        self.send();
+
+        self
+    }
+
     // Async version using tokio
     #[cfg(feature = "with_tokio")]
     fn send(&self) {
@@ -213,11 +159,6 @@ impl Ray {
 macro_rules! ray {
     () => {{
         Ray::new()
-    }};
-    ($arg:expr) => {{
-        let mut ray = Ray::new();
-        ray.log(vec![format!("{:?}", $arg)]);
-        ray
     }};
     ($($arg:expr),*) => {{
         let mut ray = Ray::new();
@@ -275,6 +216,11 @@ mod tests {
     fn confetti() {
         ray!().confetti();
     }
+
+    #[test]
+    fn clear_all() {
+        ray!().clear_all();
+    }
 }
 
 #[cfg(feature = "with_tokio")]
@@ -283,6 +229,6 @@ mod tests {
 
     #[tokio::test]
     async fn text() {
-        ray!("foobar").color("red").confetti();
+        ray!("tokio").color("red").confetti();
     }
 }
