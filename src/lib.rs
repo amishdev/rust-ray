@@ -179,6 +179,11 @@ macro_rules! ray {
     () => {{
         Ray::new()
     }};
+    ($arg:expr) => {{
+        let mut ray = Ray::new();
+        ray.text(format!("{:?}", $arg));
+        ray
+    }};
     ($($arg:tt)*) => {{
         let mut ray = Ray::new();
         ray.text(format!("{}", format_args!($($arg)*)));
@@ -191,15 +196,22 @@ macro_rules! ray {
 mod tests {
     use super::*;
 
+    #[derive(Debug)]
+    struct TestStruct(&'static str);
+
     #[test]
     fn macro_no_args() {
         let _ray = ray!();
     }
 
     #[test]
-    fn macro_with_args() {
-        let some_var = "test string";
-        let _ray = ray!("{:?}", some_var).color("green");
+    fn macro_one_arg() {
+        let _ray = ray!(TestStruct("One arg")).color("green");
+    }
+
+    #[test]
+    fn macro_multiple_args() {
+       let _ray = ray!("{}, {:?}", "multiple", TestStruct("args")).color("green");
     }
 
     #[test]
@@ -225,30 +237,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn macro_no_args() {
-        let _ray = ray!();
-    }
-
-    #[tokio::test]
-    async fn macro_with_args() {
-        let some_var = "test string";
-        let _ray = ray!("{:?}", some_var).color("green");
-    }
-
-    #[tokio::test]
     async fn text() {
-        ray!("foobar");
-    }
-
-    #[tokio::test]
-    async fn color() {
-        ray!("red").color("red");
-
-        ray!("green").color("green");
-    }
-
-    #[tokio::test]
-    async fn confetti() {
-        ray!().confetti();
+        ray!("foobar").color("red").confetti();
     }
 }
