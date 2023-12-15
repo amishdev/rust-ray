@@ -19,6 +19,7 @@ struct RayRequest {
 
 #[derive(Debug, Clone)]
 enum Payload {
+    Log(LogPayload),
     Text(TextPayload),
     Confetti,
     Color(ColorPayload),
@@ -34,6 +35,11 @@ impl From<ColorPayload> for Payload {
         Self::Color(payload)
     }
 }
+impl From<LogPayload> for Payload {
+    fn from(payload: LogPayload) -> Self {
+        Self::Log(payload)
+    }
+}
 
 impl serde::Serialize for Payload {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -41,6 +47,12 @@ impl serde::Serialize for Payload {
         S: Serializer,
     {
         match self {
+            Payload::Log(LogPayload { values, label }) => {
+                let mut payload = serializer.serialize_struct("Payload", 2)?;
+                payload.serialize_field("values", values)?;
+                payload.serialize_field("label", label)?;
+                payload.end()
+            }
             Payload::Text(TextPayload { content, label }) => {
                 let mut payload = serializer.serialize_struct("Payload", 2)?;
                 payload.serialize_field("content", content)?;
@@ -58,6 +70,12 @@ impl serde::Serialize for Payload {
             }
         }
     }
+}
+
+#[derive(Serialize, Debug, Clone)]
+struct LogPayload {
+    values: Vec<String>,
+    label: String,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -104,6 +122,23 @@ impl Ray {
         }
     }
 
+    pub fn log(&mut self, values: Vec<String>) -> &mut Self {
+        let content = LogPayload {
+            values,
+            label: "Log".to_string(),
+        };
+
+        let payload = RayPayload {
+            r#type: "log",
+            content: Payload::from(content),
+            origin: RayOrigin::new(),
+        };
+
+        self.request.payloads.push(payload);
+        self.send();
+
+        self
+    }
     pub fn text(&mut self, content: String) -> &mut Self {
         let content = TextPayload {
             content,
@@ -181,12 +216,17 @@ macro_rules! ray {
     }};
     ($arg:expr) => {{
         let mut ray = Ray::new();
-        ray.text(format!("{:?}", $arg));
+        ray.log(vec![format!("{:?}", $arg)]);
         ray
     }};
-    ($($arg:tt)*) => {{
+    ($($arg:expr),*) => {{
         let mut ray = Ray::new();
-        ray.text(format!("{}", format_args!($($arg)*)));
+        let mut vec = Vec::new();
+
+       $(vec.push(format!("{:?}", $arg));)*
+
+        ray.log(vec);
+
         ray
     }};
 }
@@ -211,12 +251,17 @@ mod tests {
 
     #[test]
     fn macro_multiple_args() {
-       let _ray = ray!("{}, {:?}", "multiple", TestStruct("args")).color("green");
+        let _ray = ray!("multiple", TestStruct("args"), vec![1, 2, 3]).color("green");
+    }
+
+    #[test]
+    fn log() {
+        ray!().log(vec!["log".to_string()]);
     }
 
     #[test]
     fn text() {
-        ray!("foobar");
+        ray!().text("text".to_string());
     }
 
     #[test]
