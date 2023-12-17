@@ -164,7 +164,7 @@ macro_rules! ray {
         let mut ray = Ray::new();
         let mut vec = Vec::new();
 
-       $(vec.push(format!("{:?}", $arg));)*
+       $(vec.push(format!("{:#?}", $arg));)*
 
         ray.log(vec);
 
