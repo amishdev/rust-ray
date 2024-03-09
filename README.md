@@ -26,8 +26,16 @@ ray!(foo, bar);
 
 // add color
 ray!(foo).color("green");
+
+// log
+ray!().log(vec!["log".to_string()]);
+
+// text
+ray!().text("text".to_string());
+
+// confetti
+ray!().confetti();
+
+// clear ray screen
+ray!().clear_all();
 ```
-
-Use within tokio
-
-To use ray within tokio runtime add the "with_tokio" feature flag.
